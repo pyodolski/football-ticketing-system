@@ -1,4 +1,5 @@
-const API_URL = "http://localhost:3000/api";
+// API URL을 동적으로 설정 (현재 호스트 사용)
+const API_URL = `${window.location.origin}/api`;
 
 // 탭 전환
 function showTab(tab) {
