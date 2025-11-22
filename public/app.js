@@ -524,8 +524,23 @@ async function startLoadTest() {
 
   document.getElementById("start-load-btn").disabled = true;
   document.getElementById("stop-load-btn").disabled = false;
-  document.getElementById("load-test-status").textContent =
-    "🎫 인기 경기 티켓 오픈 시뮬레이션 중...";
+
+  // 현재 페이지 상태에 따라 다른 시나리오 실행
+  const isLoggedIn = localStorage.getItem("token");
+  const isModalOpen = document
+    .getElementById("stadium-modal")
+    .classList.contains("active");
+
+  let statusText = "";
+  if (!isLoggedIn) {
+    statusText = "🔐 대량 회원가입/로그인 시뮬레이션 중...";
+  } else if (isModalOpen) {
+    statusText = "🎫 동시 티켓 예매 시뮬레이션 중...";
+  } else {
+    statusText = "📋 경기 조회 및 예매 내역 시뮬레이션 중...";
+  }
+
+  document.getElementById("load-test-status").textContent = statusText;
   document.getElementById("load-test-stats").style.display = "block";
 
   // 티켓팅 시나리오 시뮬레이션 (데모용 고강도)
@@ -542,75 +557,24 @@ async function simulateTicketingUser() {
   updateLoadTestStats();
 
   try {
-    // 실제 티켓팅 사용자 플로우 시뮬레이션
-    const userFlows = [
-      // 플로우 1: 신규 사용자 - 회원가입 → 로그인 → 경기 조회 (20%)
-      async () => {
-        const randomEmail = `user${Math.floor(
-          Math.random() * 1000000
-        )}@test.com`;
-        const randomName = `사용자${Math.floor(Math.random() * 10000)}`;
+    // 현재 페이지 상태에 따라 다른 시나리오 실행
+    const isLoggedIn = localStorage.getItem("token");
+    const isModalOpen = document
+      .getElementById("stadium-modal")
+      .classList.contains("active");
 
-        // 회원가입
-        const signupRes = await fetch("/api/auth/signup", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            email: randomEmail,
-            password: "test1234",
-            name: randomName,
-            phone: "010-0000-0000",
-          }),
-        });
+    let success = false;
 
-        if (!signupRes.ok) return false;
-
-        // 로그인
-        const loginRes = await fetch("/api/auth/login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            email: randomEmail,
-            password: "test1234",
-          }),
-        });
-
-        if (!loginRes.ok) return false;
-
-        // 경기 목록 조회
-        const matchesRes = await fetch("/api/matches");
-        return matchesRes.ok;
-      },
-
-      // 플로우 2: 기존 사용자 - 경기 목록 조회 (40%)
-      async () => {
-        const response = await fetch("/api/matches");
-        return response.ok;
-      },
-
-      // 플로우 3: 내 예매 내역 조회 (20%)
-      async () => {
-        const userId = Math.floor(Math.random() * 100) + 1;
-        const response = await fetch(`/api/matches/my-bookings/${userId}`);
-        return response.ok;
-      },
-
-      // 플로우 4: 시스템 모니터링 (20%)
-      async () => {
-        const response = await fetch("/api/monitor/system");
-        return response.ok;
-      },
-    ];
-
-    // 가중치에 따라 플로우 선택
-    const rand = Math.random();
-    let flow;
-    if (rand < 0.2) flow = userFlows[0]; // 회원가입+로그인 20%
-    else if (rand < 0.6) flow = userFlows[1]; // 경기 조회 40%
-    else if (rand < 0.8) flow = userFlows[2]; // 예매 내역 20%
-    else flow = userFlows[3]; // 모니터링 20%
-
-    const success = await flow();
+    if (!isLoggedIn) {
+      // 로그인 페이지: 회원가입/로그인 시뮬레이션
+      success = await simulateAuthFlow();
+    } else if (isModalOpen) {
+      // 티켓 예매 모달: 좌석 조회 및 예매 시뮬레이션
+      success = await simulateBookingFlow();
+    } else {
+      // 메인 페이지: 경기 조회 및 예매 내역 시뮬레이션
+      success = await simulateMainPageFlow();
+    }
 
     if (success) {
       successCount++;
@@ -622,6 +586,76 @@ async function simulateTicketingUser() {
   }
 
   updateLoadTestStats();
+}
+
+// 로그인 페이지: 회원가입/로그인 시뮬레이션
+async function simulateAuthFlow() {
+  const rand = Math.random();
+
+  if (rand < 0.5) {
+    // 50%: 회원가입
+    const randomEmail = `user${Math.floor(Math.random() * 1000000)}@test.com`;
+    const randomName = `사용자${Math.floor(Math.random() * 10000)}`;
+
+    const signupRes = await fetch("/api/auth/signup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: randomEmail,
+        password: "test1234",
+        name: randomName,
+        phone: "010-0000-0000",
+      }),
+    });
+
+    return signupRes.ok;
+  } else {
+    // 50%: 로그인 시도
+    const randomEmail = `user${Math.floor(Math.random() * 100)}@test.com`;
+
+    const loginRes = await fetch("/api/auth/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: randomEmail,
+        password: "test1234",
+      }),
+    });
+
+    return loginRes.ok || loginRes.status === 401; // 로그인 실패도 서버 부하
+  }
+}
+
+// 메인 페이지: 경기 조회 및 예매 내역 시뮬레이션
+async function simulateMainPageFlow() {
+  const rand = Math.random();
+
+  if (rand < 0.6) {
+    // 60%: 경기 목록 조회
+    const response = await fetch("/api/matches");
+    return response.ok;
+  } else {
+    // 40%: 내 예매 내역 조회
+    const userId = Math.floor(Math.random() * 100) + 1;
+    const response = await fetch(`/api/matches/my-bookings/${userId}`);
+    return response.ok;
+  }
+}
+
+// 티켓 예매 모달: 좌석 조회 및 예매 시뮬레이션
+async function simulateBookingFlow() {
+  const rand = Math.random();
+  const matchId = currentMatchId || Math.floor(Math.random() * 5) + 1;
+
+  if (rand < 0.7) {
+    // 70%: 좌석 조회
+    const response = await fetch(`/api/matches/${matchId}/booked-seats`);
+    return response.ok;
+  } else {
+    // 30%: 경기 정보 조회
+    const response = await fetch("/api/matches");
+    return response.ok;
+  }
 }
 
 function updateLoadTestStats() {
