@@ -10,7 +10,10 @@ COUNT=$($SCRIPT_DIR/get-instance-count.sh)
 if [ -f "$SCRIPT_DIR/.env" ]; then
   # INSTANCE_COUNT가 이미 있으면 업데이트, 없으면 추가
   if grep -q "^INSTANCE_COUNT=" "$SCRIPT_DIR/.env"; then
-    sed -i "s/^INSTANCE_COUNT=.*/INSTANCE_COUNT=$COUNT/" "$SCRIPT_DIR/.env"
+    # 기존 라인 삭제 후 새로 추가
+    grep -v "^INSTANCE_COUNT=" "$SCRIPT_DIR/.env" > "$SCRIPT_DIR/.env.tmp"
+    echo "INSTANCE_COUNT=$COUNT" >> "$SCRIPT_DIR/.env.tmp"
+    mv "$SCRIPT_DIR/.env.tmp" "$SCRIPT_DIR/.env"
   else
     echo "INSTANCE_COUNT=$COUNT" >> "$SCRIPT_DIR/.env"
   fi
