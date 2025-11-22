@@ -528,13 +528,13 @@ async function startLoadTest() {
     "🎫 인기 경기 티켓 오픈 시뮬레이션 중...";
   document.getElementById("load-test-stats").style.display = "block";
 
-  // 티켓팅 시나리오 시뮬레이션
+  // 티켓팅 시나리오 시뮬레이션 (데모용 고강도)
   loadTestInterval = setInterval(() => {
-    // 동시에 20명의 사용자가 티켓팅 시도
-    for (let i = 0; i < 20; i++) {
+    // 동시에 50명의 사용자가 티켓팅 시도
+    for (let i = 0; i < 50; i++) {
       simulateTicketingUser();
     }
-  }, 200); // 0.2초마다 20명씩 = 초당 100명의 사용자
+  }, 100); // 0.1초마다 50명씩 = 초당 500명의 사용자
 }
 
 async function simulateTicketingUser() {
