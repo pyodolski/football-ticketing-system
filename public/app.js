@@ -542,40 +542,75 @@ async function simulateTicketingUser() {
   updateLoadTestStats();
 
   try {
-    // 실제 티켓팅 플로우 시뮬레이션
-    const scenarios = [
-      // 시나리오 1: 경기 목록 조회 (40%)
+    // 실제 티켓팅 사용자 플로우 시뮬레이션
+    const userFlows = [
+      // 플로우 1: 신규 사용자 - 회원가입 → 로그인 → 경기 조회 (20%)
+      async () => {
+        const randomEmail = `user${Math.floor(
+          Math.random() * 1000000
+        )}@test.com`;
+        const randomName = `사용자${Math.floor(Math.random() * 10000)}`;
+
+        // 회원가입
+        const signupRes = await fetch("/api/auth/signup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: randomEmail,
+            password: "test1234",
+            name: randomName,
+            phone: "010-0000-0000",
+          }),
+        });
+
+        if (!signupRes.ok) return false;
+
+        // 로그인
+        const loginRes = await fetch("/api/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: randomEmail,
+            password: "test1234",
+          }),
+        });
+
+        if (!loginRes.ok) return false;
+
+        // 경기 목록 조회
+        const matchesRes = await fetch("/api/matches");
+        return matchesRes.ok;
+      },
+
+      // 플로우 2: 기존 사용자 - 경기 목록 조회 (40%)
       async () => {
         const response = await fetch("/api/matches");
         return response.ok;
       },
-      // 시나리오 2: 특정 경기의 예매된 좌석 조회 (30%)
+
+      // 플로우 3: 내 예매 내역 조회 (20%)
       async () => {
-        const matchId = Math.floor(Math.random() * 5) + 1; // 1-5번 경기
-        const response = await fetch(`/api/matches/${matchId}/booked-seats`);
+        const userId = Math.floor(Math.random() * 100) + 1;
+        const response = await fetch(`/api/matches/my-bookings/${userId}`);
         return response.ok;
       },
-      // 시나리오 3: 시스템 모니터링 (20%)
+
+      // 플로우 4: 시스템 모니터링 (20%)
       async () => {
         const response = await fetch("/api/monitor/system");
         return response.ok;
       },
-      // 시나리오 4: 헬스 체크 (10%)
-      async () => {
-        const response = await fetch("/health");
-        return response.ok;
-      },
     ];
 
-    // 가중치에 따라 시나리오 선택
+    // 가중치에 따라 플로우 선택
     const rand = Math.random();
-    let scenario;
-    if (rand < 0.4) scenario = scenarios[0];
-    else if (rand < 0.7) scenario = scenarios[1];
-    else if (rand < 0.9) scenario = scenarios[2];
-    else scenario = scenarios[3];
+    let flow;
+    if (rand < 0.2) flow = userFlows[0]; // 회원가입+로그인 20%
+    else if (rand < 0.6) flow = userFlows[1]; // 경기 조회 40%
+    else if (rand < 0.8) flow = userFlows[2]; // 예매 내역 20%
+    else flow = userFlows[3]; // 모니터링 20%
 
-    const success = await scenario();
+    const success = await flow();
 
     if (success) {
       successCount++;
@@ -588,8 +623,6 @@ async function simulateTicketingUser() {
 
   updateLoadTestStats();
 }
-
-// sendLoadRequest는 이제 simulateTicketingUser로 대체됨
 
 function updateLoadTestStats() {
   document.getElementById("request-count").textContent = requestCount;
